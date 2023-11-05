@@ -5,6 +5,11 @@ from sklearn.feature_selection import SelectKBest, chi2
 from sklearn.metrics import f1_score, confusion_matrix
 from sklearn.impute import SimpleImputer
 import tensorflow as tf
+from scipy.stats import mannwhitneyu
+
+# Set Pandas display options to show all columns
+pd.set_option('display.max_columns', None)
+pd.options.display.float_format = '{:.4f}'.format  # Format float display to 4 decimal places
 
 # Read the CSV file into a DataFrame
 df = pd.read_csv('2.csv')
@@ -80,21 +85,29 @@ print("F1 score:", f1)
 print("Sensitivity:", sensitivity)
 print("Specificity:", specificity)
 
-# Encode the target variable to 0 and 1
-target_encoded = (target == 1).astype(int)
+# Perform Mann-Whitney U test and compare medians
+results = []
 
-# Calculate point-biserial correlation between each feature and the target
-correlations = []
 for feature in selected_features['selected_features']:
-    correlation = np.corrcoef(X[feature], target_encoded)[0, 1]
-    correlations.append((feature, correlation))
+    group_1 = X[y == 1][feature]
+    group_2 = X[y == 2][feature]
 
-# Create a DataFrame to store correlations
-correlation_df = pd.DataFrame(correlations, columns=['Feature', 'Point-Biserial Correlation'])
+    # Perform Mann-Whitney U test
+    stat, p = mannwhitneyu(group_1, group_2, alternative='two-sided')
 
-# Sort features by correlation magnitude
-correlation_df = correlation_df.reindex(correlation_df['Point-Biserial Correlation'].abs().sort_values(ascending=False).index)
+    # Determine the direction of the difference in medians
+    if group_1.median() > group_2.median():
+        direction = "Class 1 > Class 2"
+    elif group_2.median() > group_1.median():
+        direction = "Class 2 > Class 1"
+    else:
+        direction = "No difference in medians"
 
-# Print the sorted correlations
-print("Point-Biserial Correlations:")
-print(correlation_df)
+    results.append([feature, stat, p, direction])
+
+# Create a DataFrame to store the results
+results_df = pd.DataFrame(results, columns=['Feature', 'U Statistic', 'p-value', 'Direction'])
+
+# Print the results
+print("Results:")
+print(results_df)

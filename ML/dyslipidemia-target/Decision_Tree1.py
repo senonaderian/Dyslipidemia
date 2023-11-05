@@ -4,22 +4,19 @@ from sklearn.model_selection import cross_val_score, GridSearchCV
 from sklearn.metrics import f1_score, confusion_matrix
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.stats import mannwhitneyu  # Import the Mann-Whitney U test
+
+np.random.seed(42)  # Set a specific random seed
 from sklearn.impute import SimpleImputer
-from scipy.stats import mannwhitneyu
-
-# Set Pandas display options to show all columns
-pd.set_option('display.max_columns', None)
-pd.options.display.float_format = '{:.4f}'.format  # Format float display to 4 decimal places
-
 
 # Read the CSV file into a DataFrame
-df = pd.read_csv('2.csv')
+df = pd.read_csv('1.csv')
 
-# Extract the 'HDLlow' column and store it in a separate variable
-target = df['HDLlow']
+# Extract the 'dyslipd' column and store it in a separate variable
+target = df['dyslipd']
 
-# Select all columns except for the 'HDLlow' column
-data = df.drop('HDLlow', axis=1)
+# Select all columns except for the 'dyslipd' column
+data = df.drop('dyslipd', axis=1)
 
 # Impute missing values with mean
 imputer = SimpleImputer(strategy='mean')
@@ -27,6 +24,48 @@ data_imputed = imputer.fit_transform(data)
 
 # Apply a transformation to make the data non-negative
 data_non_negative = data_imputed - np.min(data_imputed) + 1e-6
+
+# Use the Mann-Whitney U test to assess feature significance
+# Initialize empty lists for U statistics, p-values, and feature directions
+u_statistics = []
+p_values = []
+feature_directions = []
+
+# Loop through the selected features (change 'selected_features' to the actual list of feature names)
+selected_features = ['Female Waist Circumference', 'serumvitD', 'serumvitDrotb', 'metabolicsyndrome', 'total blood pressure', 'copper', 'chromium', 'atocopherol', 'suger', 'mayesaier']
+
+for feature_name in selected_features:
+    feature = data_non_negative[:, data.columns.get_loc(feature_name)]
+    class_1_data = feature[target == 1]
+    class_2_data = feature[target == 2]
+
+    # Perform Mann-Whitney U test
+    u_statistic, p_value = mannwhitneyu(class_1_data, class_2_data, alternative='two-sided')
+
+    # Determine the direction based on medians
+    if np.median(class_1_data) > np.median(class_2_data):
+        direction = "Class 1 > Class 2"
+    else:
+        direction = "Class 2 > Class 1"
+
+    # Format p-value to display up to 5 decimal places
+    formatted_p_value = f'{p_value:.5f}'
+
+    # Store the results
+    u_statistics.append(u_statistic)
+    p_values.append(formatted_p_value)
+    feature_directions.append(direction)
+
+# Print the results for the selected features
+feature_significance_df = pd.DataFrame(
+    {'Feature': selected_features, 'U Statistic': u_statistics, 'p-value': p_values, 'Direction': feature_directions})
+print("Feature Significance for Selected Features:")
+print(feature_significance_df)
+
+# Continue with the rest of your code as before
+
+# For example, you can perform hyperparameter tuning, build a Decision Tree classifier, evaluate its performance, and visualize the decision tree
+
 
 # Create a SelectKBest object using chi2 score function and fit to data
 from sklearn.feature_selection import SelectKBest, chi2
@@ -89,34 +128,25 @@ else:
 
 # Plot the decision tree
 plt.figure(figsize=(30, 20))
-# The 'feature_names' parameter should be a list
-plot_tree(clf_optimized, filled=True, feature_names=list(X.columns), class_names=["1", "2"])
+plot_tree(clf_optimized, filled=True, feature_names=X.columns.tolist(), class_names=["1", "2"])
 plt.savefig("decision_tree.png", dpi=200)
 plt.show()
 
-# Perform Mann-Whitney U test and compare medians
-results = []
 
-for feature in selected_features['selected_features']:
-    group_1 = X[y == 1][feature]
-    group_2 = X[y == 2][feature]
+# Plot feature importances
+importances = clf_optimized.feature_importances_
+feature_importances = pd.DataFrame({'feature': X.columns, 'importance': importances})
+feature_importances = feature_importances.sort_values(by='importance', ascending=False)
+plt.figure(figsize=(20, 20))
+plt.bar(feature_importances['feature'], feature_importances['importance'])
+plt.xlabel('Features')
+plt.ylabel('Importance')
+plt.title('Feature Importances')
+plt.xticks(rotation='vertical')
+plt.show()
 
-    # Perform Mann-Whitney U test
-    stat, p = mannwhitneyu(group_1, group_2, alternative='two-sided')
+# Encode the target variable to 0 and 1
+target_encoded = (target == 1).astype(int)
 
-    # Determine the direction of the difference in medians
-    if group_1.median() > group_2.median():
-        direction = "Class 1 > Class 2"
-    elif group_2.median() > group_1.median():
-        direction = "Class 2 > Class 1"
-    else:
-        direction = "No difference in medians"
 
-    results.append([feature, stat, p, direction])
 
-# Create a DataFrame to store the results
-results_df = pd.DataFrame(results, columns=['Feature', 'U Statistic', 'p-value', 'Direction'])
-
-# Print the results
-print("Results:")
-print(results_df)

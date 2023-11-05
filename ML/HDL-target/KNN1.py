@@ -7,6 +7,11 @@ import numpy as np
 np.random.seed(42)  # Set a specific random seed
 from sklearn.impute import SimpleImputer
 from sklearn.inspection import permutation_importance
+from scipy.stats import mannwhitneyu
+
+# Set Pandas display options to show all columns
+pd.set_option('display.max_columns', None)
+pd.options.display.float_format = '{:.4f}'.format  # Format float display to 4 decimal places
 
 # Read the CSV file into a DataFrame
 df = pd.read_csv('2.csv')
@@ -75,15 +80,29 @@ if cm.size >= 4:
 else:
     print("Insufficient values in the confusion matrix.")
 
-# Calculate feature importances using permutation importance
-result = permutation_importance(knn, X, y, n_repeats=10, random_state=42, scoring='accuracy')
-importances = result.importances_mean
-feature_importances = pd.DataFrame({'feature': X.columns, 'importance': importances})
-feature_importances = feature_importances.sort_values(by='importance', ascending=False)
-plt.figure(figsize=(20, 20))
-plt.bar(feature_importances['feature'], feature_importances['importance'])
-plt.xlabel('Features')
-plt.ylabel('Importance')
-plt.title('Feature Importances (Permutation Importance)')
-plt.xticks(rotation='vertical')
-plt.show()
+# Perform Mann-Whitney U test and compare medians
+results = []
+
+for feature in selected_features['selected_features']:
+    group_1 = X[y == 1][feature]
+    group_2 = X[y == 2][feature]
+
+    # Perform Mann-Whitney U test
+    stat, p = mannwhitneyu(group_1, group_2, alternative='two-sided')
+
+    # Determine the direction of the difference in medians
+    if group_1.median() > group_2.median():
+        direction = "Class 1 > Class 2"
+    elif group_2.median() > group_1.median():
+        direction = "Class 2 > Class 1"
+    else:
+        direction = "No difference in medians"
+
+    results.append([feature, stat, p, direction])
+
+# Create a DataFrame to store the results
+results_df = pd.DataFrame(results, columns=['Feature', 'U Statistic', 'p-value', 'Direction'])
+
+# Print the results
+print("Results:")
+print(results_df)

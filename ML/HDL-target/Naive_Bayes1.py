@@ -7,6 +7,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 np.random.seed(42)  # Set a specific random seed
 from sklearn.impute import SimpleImputer
+from scipy.stats import mannwhitneyu
+
+# Set Pandas display options to show all columns
+pd.set_option('display.max_columns', None)
+pd.options.display.float_format = '{:.4f}'.format  # Format float display to 4 decimal places
 
 # Read the CSV file into a DataFrame
 df = pd.read_csv('1.csv')
@@ -77,3 +82,30 @@ if cm.size >= 4:
     print("Specificity:", specificity)
 else:
     print("Insufficient values in the confusion matrix.")
+
+# Perform Mann-Whitney U test and compare medians
+results = []
+
+for feature in selected_features['selected_features']:
+    group_1 = X[y == 1][feature]
+    group_2 = X[y == 2][feature]
+
+    # Perform Mann-Whitney U test
+    stat, p = mannwhitneyu(group_1, group_2, alternative='two-sided')
+
+    # Determine the direction of the difference in medians
+    if group_1.median() > group_2.median():
+        direction = "Class 1 > Class 2"
+    elif group_2.median() > group_1.median():
+        direction = "Class 2 > Class 1"
+    else:
+        direction = "No difference in medians"
+
+    results.append([feature, stat, p, direction])
+
+# Create a DataFrame to store the results
+results_df = pd.DataFrame(results, columns=['Feature', 'U Statistic', 'p-value', 'Direction'])
+
+# Print the results
+print("Results:")
+print(results_df)

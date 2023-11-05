@@ -7,22 +7,16 @@ import numpy as np
 np.random.seed(42)  # Set a specific random seed
 from sklearn.impute import SimpleImputer
 from sklearn.feature_selection import SelectKBest, f_classif
-from scipy.stats import mannwhitneyu
-
-
-# Set Pandas display options to show all columns
-pd.set_option('display.max_columns', None)
-pd.options.display.float_format = '{:.4f}'.format  # Format float display to 4 decimal places
-
+from scipy.stats import mannwhitneyu  # Import the Mann-Whitney U test
 
 # Read the CSV file into a DataFrame
 df = pd.read_csv('2.csv')
 
-# Extract the 'HDLlow' column and store it in a separate variable
-target = df['HDLlow']
+# Extract the 'dyslipd' column and store it in a separate variable
+target = df['dyslipd']
 
-# Select all columns except for the 'HDLlow' column
-data = df.drop('HDLlow', axis=1)
+# Select all columns except for the 'dyslipd' column
+data = df.drop('dyslipd', axis=1)
 
 # Impute missing values with mean
 imputer = SimpleImputer(strategy='mean')
@@ -53,6 +47,46 @@ selected_features = pd.read_csv("selected_features6.csv")
 X = data[selected_features['selected_features']]
 y = target
 
+# Perform Mann-Whitney U test and compare medians for selected features
+u_statistics = []
+p_values = []
+medians = []
+feature_directions = []
+
+for feature_name in selected_features_f_classif:
+    feature = X[feature_name]
+    class_1_data = feature[target == 1]
+    class_2_data = feature[target == 2]
+
+    # Perform Mann-Whitney U test
+    u_statistic, p_value = mannwhitneyu(class_1_data, class_2_data, alternative='two-sided')
+
+    # Determine the direction based on medians
+    median_class_1 = np.median(class_1_data)
+    median_class_2 = np.median(class_2_data)
+
+    if median_class_1 > median_class_2:
+        direction = "Class 1 > Class 2"
+    else:
+        direction = "Class 2 > Class 1"
+
+    # Store the results
+    u_statistics.append(u_statistic)
+    p_values.append(p_value)
+    medians.append((median_class_1, median_class_2))
+    feature_directions.append(direction)
+
+# Print the results for the selected features
+feature_significance_df = pd.DataFrame({
+    'Feature': selected_features_f_classif,
+    'U Statistic': u_statistics,
+    'p-value': p_values,
+    'Direction': feature_directions
+})
+print("Feature Significance for Selected Features (Mann-Whitney U test and median comparison):")
+pd.options.display.float_format = '{:.5f}'.format  # Set the display format for p-values
+print(feature_significance_df)
+
 # Calculate class weights
 class_counts = np.bincount(y)
 class_weights = {i: len(y) / (2 * class_counts[i]) if class_counts[i] != 0 else 1e-6 for i in range(len(class_counts))}
@@ -66,10 +100,6 @@ clf.fit(X, y)
 # Evaluate the classifier using cross-validation
 scores = cross_val_score(clf, X, y, cv=5)
 
-# Print the accuracy and F1 score using cross-validation
-print("Accuracy:", scores.mean())
-print("F1 score:", f1_score(y, clf.predict(X), average="weighted"))
-
 # Calculate the confusion matrix
 y_pred = clf.predict(X)
 cm = confusion_matrix(y, y_pred, labels=[1, 2])  # Specify all possible labels
@@ -78,32 +108,11 @@ tn, fp, fn, tp = cm.ravel()
 sensitivity = tp / (tp + fn)
 specificity = tn / (tn + fp) if tn + fp != 0 else np.nan
 
+# Print the accuracy and F1 score using cross-validation
+print("Accuracy:", scores.mean())
+print("F1 score:", f1_score(y, clf.predict(X), average="weighted"))
 print("Sensitivity:", sensitivity)
 print("Specificity:", specificity)
 
-# Perform Mann-Whitney U test and compare medians
-results = []
-
-for feature in selected_features['selected_features']:
-    group_1 = X[y == 1][feature]
-    group_2 = X[y == 2][feature]
-
-    # Perform Mann-Whitney U test
-    stat, p = mannwhitneyu(group_1, group_2, alternative='two-sided')
-
-    # Determine the direction of the difference in medians
-    if group_1.median() > group_2.median():
-        direction = "Class 1 > Class 2"
-    elif group_2.median() > group_1.median():
-        direction = "Class 2 > Class 1"
-    else:
-        direction = "No difference in medians"
-
-    results.append([feature, stat, p, direction])
-
-# Create a DataFrame to store the results
-results_df = pd.DataFrame(results, columns=['Feature', 'U Statistic', 'p-value', 'Direction'])
-
-# Print the results
-print("Results:")
-print(results_df)
+# Encode the target variable to 0 and 1
+target_encoded = (target == 1).astype(int)

@@ -101,7 +101,7 @@ else:
 
 # Plot the decision tree
 plt.figure(figsize=(30, 20))
-plot_tree(clf, filled=True, feature_names=X.columns, class_names=[str(cls) for cls in labels])
+plot_tree(clf, filled=True, feature_names=X.columns.tolist(), class_names=[str(cls) for cls in labels])
 plt.savefig("decision_tree.png", dpi=300)
 plt.show()
 
