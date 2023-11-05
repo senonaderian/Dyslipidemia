@@ -13,7 +13,7 @@ licence before contributing to the project.
 - Then clone the forked project to your computer:
 
 ```
-git clone https://github.com/your-github-username/RecycleIT-C
+git clone https://github.com/your user name/Dyslipidemia.git
 ```
 
 
@@ -76,7 +76,7 @@ in the command line:
 
 ```
 # Add a new remote upstream repository
-git remote add upstream https://github.com/RecycleAI/RecycleIT-C.git
+git remote add upstream https://github.com/your user name/Dyslipidemia.git
 
 # Sync your fork on your device
 git fetch upstream
